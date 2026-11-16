@@ -1,0 +1,26 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /srv
+
+COPY pyproject.toml ./
+COPY accounts ./accounts
+COPY orgs ./orgs
+COPY billing ./billing
+COPY config ./config
+COPY manage.py ./
+COPY pytest.ini ./
+
+RUN pip install --no-cache-dir .
+
+RUN python manage.py collectstatic --no-input || true
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/')"
+
+CMD ["sh", "-c", "python manage.py migrate --no-input && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"]

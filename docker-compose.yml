@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: saas
+      POSTGRES_USER: saas
+      POSTGRES_PASSWORD: saas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgres://saas:saas@db:5432/saas
+      POSTGRES_HOST: db
+      DJANGO_ALLOWED_HOSTS: "*"
+      DJANGO_DEBUG: "True"
+      CORS_ALLOWED_ORIGINS: http://localhost:3002,http://127.0.0.1:3002
+      FRONTEND_URL: http://localhost:3002
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

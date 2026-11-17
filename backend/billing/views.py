@@ -9,6 +9,7 @@ from django.conf import settings
 from datetime import timedelta
 
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -19,7 +20,14 @@ from orgs.permissions import HasOrganization, IsOrgAdmin, IsOrgOwner
 from . import quota
 from .models import Plan, Subscription
 from .providers import BillingError, get_provider
-from .serializers import CheckoutSerializer, PlanSerializer, SubscriptionSerializer
+from .serializers import (
+    CheckoutResponseSerializer,
+    CheckoutSerializer,
+    PlanSerializer,
+    SubscriptionSerializer,
+    SubscriptionStateSerializer,
+    WebhookAckSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +37,7 @@ class PlanListView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(responses=PlanSerializer(many=True))
     def get(self, request):
         plans = Plan.objects.filter(is_active=True)
         return Response(PlanSerializer(plans, many=True).data)
@@ -37,6 +46,7 @@ class PlanListView(APIView):
 class SubscriptionView(APIView):
     permission_classes = [HasOrganization]
 
+    @extend_schema(responses=SubscriptionStateSerializer)
     def get(self, request):
         subscription = Subscription.objects.select_related("plan").filter(
             organization=request.organization
@@ -53,6 +63,7 @@ class SubscriptionView(APIView):
 class CheckoutView(APIView):
     permission_classes = [IsOrgAdmin]
 
+    @extend_schema(request=CheckoutSerializer, responses=CheckoutResponseSerializer)
     def post(self, request):
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -78,6 +89,7 @@ class CheckoutView(APIView):
 class CancelView(APIView):
     permission_classes = [IsOrgOwner]
 
+    @extend_schema(request=None, responses=SubscriptionSerializer)
     def post(self, request):
         subscription = Subscription.objects.filter(organization=request.organization).first()
         if subscription is None:
@@ -94,6 +106,7 @@ class StripeWebhookView(APIView):
     permission_classes = [AllowAny]
     authentication_classes: list = []
 
+    @extend_schema(request=None, responses=WebhookAckSerializer)
     def post(self, request):
         import stripe
 

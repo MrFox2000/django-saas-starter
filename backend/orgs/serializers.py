@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Membership, Organization
+from billing.serializers import QuotaSerializer, SubscriptionSerializer
 
 User = get_user_model()
 
@@ -64,3 +65,20 @@ class MemberCreateSerializer(serializers.Serializer):
 
 class MemberRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=Membership.Role.choices)
+
+
+class CurrentOrgSerializer(serializers.Serializer):
+    organization = OrganizationSerializer()
+    role = serializers.CharField()
+    members = MemberSerializer(many=True)
+    subscription = SubscriptionSerializer(allow_null=True)
+    quota = QuotaSerializer()
+
+
+class OrgReportSerializer(serializers.Serializer):
+    generated_at = serializers.CharField()
+    organization = serializers.CharField()
+    member_count = serializers.IntegerField()
+    roles = serializers.DictField(child=serializers.IntegerField())
+    quota = QuotaSerializer()
+    provider = serializers.CharField()

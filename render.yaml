@@ -1,0 +1,28 @@
+# Render Blueprint for the Django API.
+#
+# The database is *not* declared here on purpose: Render's free PostgreSQL
+# expires 30 days after creation, while Neon's free tier has no time limit.
+# Create the Neon database, then paste its connection string into DATABASE_URL.
+services:
+  - type: web
+    name: django-saas-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health/
+    autoDeploy: true
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "*"
+      # Neon connection string, e.g.
+      # postgresql://user:pass@ep-xxx-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # Public URL of the deployed dashboard; used for Stripe redirects.
+      - key: FRONTEND_URL
+        sync: false

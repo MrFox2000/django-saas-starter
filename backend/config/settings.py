@@ -6,9 +6,12 @@ defaults, so `python manage.py runserver` works on a fresh clone with no .env.
 
 from __future__ import annotations
 
+import contextlib
 import os
 from datetime import timedelta
 from pathlib import Path
+
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -45,6 +48,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -74,16 +78,7 @@ TEMPLATES = [
 ]
 
 if env("DATABASE_URL"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("POSTGRES_DB", "saas"),
-            "USER": env("POSTGRES_USER", "saas"),
-            "PASSWORD": env("POSTGRES_PASSWORD", "saas"),
-            "HOST": env("POSTGRES_HOST", "127.0.0.1"),
-            "PORT": env("POSTGRES_PORT", "5432"),
-        }
-    }
+    DATABASES = {"default": dj_database_url.parse(env("DATABASE_URL"), conn_max_age=600)}
 else:
     DATABASES = {
         "default": {
@@ -108,10 +103,30 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise warns on every request until STATIC_ROOT exists. It is created by
+# collectstatic during the image build, so on a booted container this is a no-op.
+with contextlib.suppress(OSError):
+    STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+
+# WhiteNoise serves the admin and DRF static assets straight from the container,
+# so the deployed API looks right without a separate static host.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MAILERS = {
-    "default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"},
+    "default": {
+        "BACKEND": env(
+            "EMAIL_BACKEND",
+            "django.core.mail.backends.console.EmailBackend"
+            if DEBUG
+            else "django.core.mail.backends.smtp.EmailBackend",
+        )
+    }
 }
 
 REST_FRAMEWORK = {
@@ -153,8 +168,27 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
+# Every Vercel deployment of the dashboard (production and preview) gets its own
+# *.vercel.app hostname, so match them by pattern instead of hard-coding one.
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://[a-z0-9-]+\.vercel\.app$"]
+
 # Billing
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 BILLING_CURRENCY = env("BILLING_CURRENCY", "usd")
 FRONTEND_URL = env("FRONTEND_URL", "http://localhost:3002")
+
+# Behind a TLS-terminating proxy (Render, Fly, any PaaS) the request arrives over
+# plain HTTP with X-Forwarded-Proto set. Trusting that header is what lets Django
+# know the connection is secure, so secure cookies and redirects behave.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = env_bool("DJANGO_SSL_REDIRECT", True)
+    # The platform's health checker probes the container over plain HTTP; a 301
+    # there reads as an unhealthy service, so exempt that one path.
+    SECURE_REDIRECT_EXEMPT = [r"^health/?$"]
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

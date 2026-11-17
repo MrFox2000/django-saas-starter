@@ -39,3 +39,27 @@ class UsageRecordSerializer(serializers.ModelSerializer):
 
 class CheckoutSerializer(serializers.Serializer):
     plan_code = serializers.SlugField()
+
+
+class QuotaSerializer(serializers.Serializer):
+    used = serializers.IntegerField()
+    limit = serializers.IntegerField()
+    remaining = serializers.IntegerField()
+    plan_code = serializers.CharField()
+    period = serializers.CharField()
+
+
+class SubscriptionStateSerializer(serializers.Serializer):
+    subscription = SubscriptionSerializer(allow_null=True)
+    quota = QuotaSerializer()
+    provider = serializers.CharField()
+
+
+class CheckoutResponseSerializer(serializers.Serializer):
+    checkout_url = serializers.URLField()
+    plan = PlanSerializer()
+    provider = serializers.CharField()
+
+
+class WebhookAckSerializer(serializers.Serializer):
+    received = serializers.BooleanField()

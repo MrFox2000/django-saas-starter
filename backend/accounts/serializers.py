@@ -85,3 +85,35 @@ class TokenWithOrgSerializer(TokenObtainPairSerializer):
             else None
         )
         return data
+
+
+class OrganizationRefSerializer(serializers.Serializer):
+    """Compact organisation reference embedded in the auth responses."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.SlugField()
+    role = serializers.CharField()
+
+
+class AuthTokenPairSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+
+
+class RegisterResponseSerializer(AuthTokenPairSerializer):
+    user = UserSerializer()
+
+
+class MeSerializer(serializers.Serializer):
+    user = UserSerializer()
+    organizations = OrganizationRefSerializer(many=True)
+    active_org_id = serializers.IntegerField(allow_null=True)
+
+
+class SwitchOrgResponseSerializer(AuthTokenPairSerializer):
+    org = OrganizationRefSerializer()
+
+
+class SwitchOrgRequestSerializer(serializers.Serializer):
+    org_id = serializers.IntegerField()

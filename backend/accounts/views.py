@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -12,7 +13,14 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from orgs.models import Membership
 
-from .serializers import RegisterSerializer, UserSerializer
+from .serializers import (
+    MeSerializer,
+    RegisterResponseSerializer,
+    RegisterSerializer,
+    SwitchOrgRequestSerializer,
+    SwitchOrgResponseSerializer,
+    UserSerializer,
+)
 
 
 class RegisterView(APIView):
@@ -20,6 +28,7 @@ class RegisterView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth"
 
+    @extend_schema(request=RegisterSerializer, responses={201: RegisterResponseSerializer})
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -45,6 +54,7 @@ class RegisterView(APIView):
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=MeSerializer)
     def get(self, request):
         memberships = (
             Membership.objects.filter(user=request.user)
@@ -73,6 +83,7 @@ class SwitchOrgView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=SwitchOrgRequestSerializer, responses={200: SwitchOrgResponseSerializer})
     def post(self, request):
         org_id = request.data.get("org_id")
         membership = (

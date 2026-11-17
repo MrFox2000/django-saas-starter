@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.db.models import Count
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.generics import ListCreateAPIView, get_object_or_404
 from rest_framework.permissions import IsAuthenticated
@@ -17,10 +18,12 @@ from billing.serializers import SubscriptionSerializer
 from .models import Membership, Organization
 from .permissions import HasOrganization, IsOrgAdmin
 from .serializers import (
+    CurrentOrgSerializer,
     MemberCreateSerializer,
     MemberRoleSerializer,
     MemberSerializer,
     OrganizationSerializer,
+    OrgReportSerializer,
 )
 
 
@@ -49,6 +52,7 @@ class CurrentOrgView(APIView):
 
     permission_classes = [HasOrganization]
 
+    @extend_schema(responses=CurrentOrgSerializer)
     def get(self, request):
         organization = request.organization
         subscription = Subscription.objects.select_related("plan").filter(
@@ -70,10 +74,12 @@ class CurrentOrgView(APIView):
 class MemberListCreateView(APIView):
     permission_classes = [HasOrganization]
 
+    @extend_schema(responses=MemberSerializer(many=True))
     def get(self, request):
         members = request.organization.memberships.select_related("user").order_by("created_at")
         return Response(MemberSerializer(members, many=True).data)
 
+    @extend_schema(request=MemberCreateSerializer, responses={201: MemberSerializer})
     def post(self, request):
         if not request.membership.is_admin:
             return Response(
@@ -95,6 +101,7 @@ class MemberListCreateView(APIView):
 class MemberDetailView(APIView):
     permission_classes = [IsOrgAdmin]
 
+    @extend_schema(request=MemberRoleSerializer, responses=MemberSerializer)
     def patch(self, request, pk: int):
         membership = get_object_or_404(
             request.organization.memberships.select_related("user"), pk=pk
@@ -115,6 +122,7 @@ class MemberDetailView(APIView):
         membership.save(update_fields=["role"])
         return Response(MemberSerializer(membership).data)
 
+    @extend_schema(request=None, responses={204: None})
     def delete(self, request, pk: int):
         membership = get_object_or_404(request.organization.memberships, pk=pk)
         if membership.role == Membership.Role.OWNER:
@@ -130,6 +138,7 @@ class OrgReportView(APIView):
 
     permission_classes = [HasOrganization]
 
+    @extend_schema(request=None, responses={200: OrgReportSerializer})
     def post(self, request):
         try:
             state = quota.consume(request.organization, amount=1)

@@ -25,4 +25,4 @@ services:
         sync: false
       # Public URL of the deployed dashboard; used for Stripe redirects.
       - key: FRONTEND_URL
-        sync: false
+        value: https://next-dashboard-phi-azure.vercel.app

@@ -16,6 +16,22 @@ Django 6 · DRF · JWT · OpenAPI
 
 ---
 
+## Live
+
+| | |
+|---|---|
+| **API** | https://django-saas-api.onrender.com |
+| **OpenAPI / Swagger UI** | https://django-saas-api.onrender.com/api/docs/ |
+| **Health check** | https://django-saas-api.onrender.com/health/ |
+| **Dashboard** | https://next-dashboard-phi-azure.vercel.app |
+
+A Docker image runs on Render with Postgres on [Neon](https://neon.com). The
+container migrates and seeds an idempotent demo organisation at start-up, so a
+fresh deploy is clickable immediately. The free Render instance sleeps after 15
+minutes idle; the first request afterwards takes about 50 seconds.
+
+---
+
 ## Why this exists
 
 Most "SaaS boilerplates" stop at login. The parts that actually take time in a
